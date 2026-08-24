@@ -14,12 +14,9 @@ FROM $LINKERD2_IMAGE as linkerd2
 FROM --platform=$BUILDPLATFORM $RUST_IMAGE as fetch
 
 ARG PROXY_FEATURES=""
-RUN apt-get update && \
-    apt-get install -y time && \
-    if [[ "$PROXY_FEATURES" =~ .*meshtls-boring.* ]] ; then \
-      apt-get install -y golang ; \
-    fi && \
-    rm -rf /var/lib/apt/lists/*
+# apt-get step removed (INFRA-19879 custom build): it only installed `time`
+# (verbose build timing) and golang (meshtls-boring only, unused here), and the
+# dev image's Debian snapshot fails GPG verification in 2026.
 
 ENV CARGO_NET_RETRY=10
 ENV RUSTUP_MAX_RETRIES=10
@@ -40,7 +37,7 @@ ARG LINKERD2_PROXY_VENDOR=""
 SHELL ["/bin/bash", "-c"]
 RUN --mount=type=cache,id=cargo,target=/usr/local/cargo/registry \
     if [[ "$PROXY_FEATURES" =~ .*pprof.* ]] ; then cmd=build-debug ; else cmd=build ; fi ; \
-    /usr/bin/time -v just arch="$TARGETARCH" features="$PROXY_FEATURES" profile="$PROFILE" "$cmd" && \
+    just arch="$TARGETARCH" features="$PROXY_FEATURES" profile="$PROFILE" "$cmd" && \
     ( mkdir -p /out ; \
         mv $(just --evaluate profile="$PROFILE" _target_bin) /out/ ; \
         du -sh /out/* )
