@@ -30,6 +30,11 @@ RUN --mount=type=cache,id=cargo,target=/usr/local/cargo/registry \
 FROM fetch as build
 ENV CARGO_INCREMENTAL=0
 ENV RUSTFLAGS="-D warnings -A deprecated --cfg tokio_unstable"
+# Cross-compiling jemalloc (autoconf) for aarch64-gnu needs an explicit cross
+# compiler - cc-rs per-target convention (INFRA-19879 custom build).
+ENV CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
+    CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ \
+    AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
 ARG TARGETARCH="amd64"
 ARG PROFILE="release"
 ARG LINKERD2_PROXY_VERSION=""
