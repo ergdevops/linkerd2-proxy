@@ -37,6 +37,7 @@ ARG LINKERD2_PROXY_VENDOR=""
 SHELL ["/bin/bash", "-c"]
 RUN --mount=type=cache,id=cargo,target=/usr/local/cargo/registry \
     if [[ "$PROXY_FEATURES" =~ .*pprof.* ]] ; then cmd=build-debug ; else cmd=build ; fi ; \
+    just arch="$TARGETARCH" rustup && \
     just arch="$TARGETARCH" features="$PROXY_FEATURES" profile="$PROFILE" "$cmd" && \
     ( mkdir -p /out ; \
         mv $(just --evaluate profile="$PROFILE" _target_bin) /out/ ; \
