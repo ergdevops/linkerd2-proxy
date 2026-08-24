@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1.4
+# Native-arch build of linkerd2-proxy with jemalloc enabled (INFRA-19879 custom build).
+# Unlike the upstream Dockerfile (which pins the toolchain stage to the build host's
+# platform and cross-compiles), every stage here runs on the TARGET platform, so
+# building with --platform linux/arm64 on an arm64 host is a fully native compile -
+# no cross toolchain, which matters because jemalloc's autoconf configure needs to
+# link test executables (the step that fails under the upstream cross setup, where
+# the dev image lacks a working aarch64-gnu link path).
+
+# Wrappers (identity + await) from the official proxy image of the exact release
+# the cluster runs, so the runtime layout matches what the injector expects.
+ARG LINKERD2_IMAGE=cr.l5d.io/linkerd/proxy:edge-25.8.1
+FROM $LINKERD2_IMAGE AS linkerd2
+
+FROM rust:1.88.0-bookworm AS build
+WORKDIR /src
+COPY . .
+ENV CARGO_NET_RETRY=10
+ENV CARGO_INCREMENTAL=0
+ENV RUSTFLAGS="-D warnings -A deprecated --cfg tokio_unstable"
+ARG LINKERD2_PROXY_VERSION=""
+ARG LINKERD2_PROXY_VENDOR=""
+RUN --mount=type=cache,id=cargo-native,target=/usr/local/cargo/registry \
+    cargo build --locked --release --package=linkerd2-proxy && \
+    mkdir -p /out && \
+    objcopy --strip-unneeded target/release/linkerd2-proxy /out/linkerd2-proxy && \
+    du -sh /out/*
+
+FROM docker.io/library/debian:bookworm-slim AS runtime
+WORKDIR /linkerd
+COPY --from=linkerd2 /usr/lib/linkerd/* /usr/lib/linkerd/
+COPY --from=build /out/* /usr/lib/linkerd/
+ENTRYPOINT ["/usr/lib/linkerd/linkerd2-proxy-identity"]
