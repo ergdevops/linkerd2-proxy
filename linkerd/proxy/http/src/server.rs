@@ -11,7 +11,7 @@ use std::{
     time::Duration,
 };
 use tower::Service;
-use tracing::{debug, Instrument};
+use tracing::{debug, info, Instrument};
 
 #[cfg(test)]
 mod tests;
@@ -240,7 +240,7 @@ where
                                 conn.await?;
                             }
                             () = &mut max_age => {
-                                debug!("Max connection age reached; shutting down the connection");
+                                info!(client.addr = %peer, "Max connection age reached; gracefully shutting down the connection");
                                 Pin::new(&mut conn).graceful_shutdown();
                                 conn.await?;
                             }
